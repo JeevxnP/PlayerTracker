@@ -14,7 +14,7 @@ def clickPitchPoints(event, x, y, flags, param):
                     str(y), (x,y), font,
                     0.5, (255, 255, 0), 1)
         cv.imshow('Frame', frame)
-    elif (event == cv.EVENT_RBUTTONDOWN) and (len(xPts) > 0) and (len(yPts) > 0):
+    elif (event == cv.EVENT_RBUTTONDOWN) and (len(pitchPts) > 0):
         pitchPts.pop(len(pitchPts)-1)
         print(pitchPts)
     elif (event == cv.EVENT_MBUTTONDOWN):
