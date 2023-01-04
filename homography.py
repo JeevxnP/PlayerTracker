@@ -2,15 +2,18 @@
 import cv2 as cv
 import numpy as np
 
+# Function for drawing the selected pitch points drawn on the image window
 def redrawFrame(frame, imagePts):
     frame = frameCopy.copy()
     # Displaying coordinate counter
     cv.putText(frame, 'Select Pitch Point ' + str(len(imagePts)+1), (frame.shape[1]-200, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (255,255,0), 1)
+    
+    # Displaying points selected
     for point in imagePts:
         # Skipping over points not present on pitch
         if (point == [-1,-1]):
             continue
-        # Displaying the coordinates on the image window
+        # Displaying a dot and the coordinates on the image window
         cv.putText(frame, str(point[0]) + ',' + str(point[1]), (point[0],point[1]), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
         cv.circle(frame, (point[0],point[1]), 3, (0,255,255), -1)
     return frame
@@ -23,31 +26,25 @@ def clickPitchPoints(event, x, y, flags, param):
     if (event == cv.EVENT_LBUTTONDOWN):
         imagePts.append([x,y,1])
         frame = redrawFrame(frame, imagePts)
-        # print(imagePts)
     # Right button click to remove the last point
     elif (event == cv.EVENT_RBUTTONDOWN) and (len(imagePts) > 0):
         imagePts.pop(len(imagePts)-1)
         frame = redrawFrame(frame, imagePts)
-        # print(imagePts)
     # Any other mouse button to skip the next point (not present on image)
     elif (event == cv.EVENT_MBUTTONDOWN):
         imagePts.append([-1,-1])
         frame = redrawFrame(frame, imagePts)
-        # print(imagePts)
 
-def newFunction(event, x, y, flags, param):
+# Function converting image point (from mouse event) to pitch point
+def homography(event, x, y, flags, param):
     if (event == cv.EVENT_LBUTTONDOWN):
-        print("--------")
-        print(np.asarray([[x],[y],[1]]).shape)
-        print(h.shape)
         result = h @ np.asarray([[x],[y],[1]])
         newX = result[0] / result[2]
         newY = result[1] / result[2]
         newZ = result[2] / result[2]
         print(np.asarray([[newX],[newY],[newZ]]))
 
-    # print(np.asarray([x,y,1]) @ h)
-
+# Real pitch dimensions - currently hardcoded but will later need user input
 pitchLength = 105
 pitchWidth = 68
 
@@ -55,8 +52,8 @@ pitchWidth = 68
 backSub = cv.createBackgroundSubtractorMOG2()
 
 # Create a VideoCapture object and read from input file
-cap = cv.VideoCapture('Datasets/Game1/First Half/0/output.h264') # 30s clip / 900 frames - camera 0
-# cap = cv.VideoCapture('Datasets/Game1/First Half/1/output.h264') # 30s clip / 900 frames - camera 1
+# cap = cv.VideoCapture('Datasets/Game1/First Half/0/output.h264') # 30s clip / 900 frames - camera 0
+cap = cv.VideoCapture('Datasets/Game1/First Half/1/output.h264') # 30s clip / 900 frames - camera 1
 
 # Check if camera opened successfully
 if (cap.isOpened()== False):
@@ -76,17 +73,25 @@ while(cap.isOpened()):
 
         # Select pitch points on first video frame
         if (frameNumber == 1):
+            # Initialising selection window
             imagePts = []
             frameCopy = frame.copy()
             cv.namedWindow('Frame')
             cv.setMouseCallback('Frame', clickPitchPoints)
             cv.putText(frame, 'Select Pitch Point ' + str(len(imagePts)+1), (frame.shape[1]-200, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (255,255,0), 1)
+            
+            # User selection of 29 key pitch poits
             while (len(imagePts) < 29):
                 cv.imshow('Frame', frame)
                 key = cv.waitKey(1) & 0xFF
+            
+            # Finding the homography matrix and resultant pitch mask after pitch points selected 
             else:
+                # Removing mouse callback event
                 cv.setMouseCallback('Frame', lambda *args : None)
-                # cv.setMouseCallback('Frame', newFunction)
+                # cv.setMouseCallback('Frame', homography)
+
+                # Homography calculation
                 boxToSidelines = (pitchWidth-40.32)/2
                 pitchPts = [[0, 0, 1], [0, boxToSidelines, 1], [0, boxToSidelines+11, 1],
                             [0, boxToSidelines+16.5, 1], [0, boxToSidelines+23.82, 1],
@@ -117,9 +122,8 @@ while(cap.isOpened()):
                 imageCoords = np.asarray(imagePtsNew)
                 pitchCoords = np.asarray(pitchPtsNew)
                 h, inliers = cv.findHomography(imageCoords, pitchCoords)
-                # print(h)
-                # print(inliers)
-        
+
+                # Pitch mask creation by iterating over each image pixel
                 mask = np.zeros(frame.shape[:2], dtype='uint8')
                 for i in range (mask.shape[0]):
                     for j in range (mask.shape[1]):
@@ -130,14 +134,11 @@ while(cap.isOpened()):
                         if (newX>0 and newX<pitchLength and newY>0 and newY<pitchWidth):
                             mask[i][j] = 1
 
-                
-        
-        # bw = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        masked = cv.bitwise_and(frame, frame, mask=mask)
+        # Application of pitch mask
+        frame = cv.bitwise_and(frame, frame, mask=mask)
 
         # Display the resulting frame
         cv.imshow('Frame', frame)
-        cv.imshow('Masked', masked)
 
         # Pause at frames
         if (frameNumber == 90 or frameNumber == 270 or frameNumber == 450 or frameNumber == 720 or frameNumber == 900):
