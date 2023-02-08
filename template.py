@@ -24,7 +24,7 @@ while(cap.isOpened()):
         cv.putText(frame, str(frameNumber), (15, 15),
                cv.FONT_HERSHEY_SIMPLEX, 0.5 , (0,0,0))
 
-        # Display the resulting frameq
+        # Display the resulting frame
         cv.imshow('Frame', frame)
         
         # Pause at frames
