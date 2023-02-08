@@ -41,20 +41,6 @@ while(cap.isOpened()):
         frameNumber = cap.get(cv.CAP_PROP_POS_FRAMES)
         if (frameNumber == 30 or frameNumber == 90 or frameNumber == 270 or frameNumber == 450):
 
-            # chans = cv.split(frame)
-            # colours = ("b", "g", "r")
-            # plt.figure()
-            # plt.title("RGB Histogram")
-            # plt.xlabel("Bins")
-            # plt.ylabel("# of Pixels")
-
-            # for (chan, colour) in zip(chans, colours):
-            #     hist = cv.calcHist([chan], [0], None, [256], [0,256])
-            #     plt.plot(hist, color=colour)
-            #     plt.xlim([0, 256])
-            
-            # plt.show()
-
             # # Create a window
             # cv.namedWindow('image')
 

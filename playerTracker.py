@@ -248,9 +248,6 @@ while(cap.isOpened()):
                 boundingBoxes.append((x, y, w, h))
         
         boundingBoxes = mergeOverlappingBoxes(boundingBoxes)
-        
-        histograms =[[None]*3 for i in range(len(boundingBoxes))]
-        mask = np.zeros(frame.shape[:2], np.uint8)
 
         # Drawing bounding boxes on frame with numbering
         for i in range (len(boundingBoxes)):
@@ -258,8 +255,6 @@ while(cap.isOpened()):
             y1 = boundingBoxes[i][1]
             x2 = boundingBoxes[i][0] + boundingBoxes[i][2]
             y2 = boundingBoxes[i][1] + boundingBoxes[i][3]
-            mask[x1:x2, y1:y2] = 255
-            # hist = cv.calcHist([frame],[0],mask,[256],[0,256])
             cv.rectangle(frame,(boundingBoxes[i][0],boundingBoxes[i][1]),(boundingBoxes[i][0]+boundingBoxes[i][2],boundingBoxes[i][1]+boundingBoxes[i][3]),(0,0,255),1)
             cv.putText(frame, str(i), (boundingBoxes[i][0], boundingBoxes[i][1]), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (255,255,0))
 
