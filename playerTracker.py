@@ -1,6 +1,7 @@
 # Library imports
 import cv2 as cv
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Function for drawing the selected pitch points drawn on the image window
 def redrawFrame(frame, minimap, imagePts):
@@ -140,10 +141,10 @@ backSub = cv.createBackgroundSubtractorMOG2(800, 12, True)
 # Create a VideoCapture object and read from input file
 # cap = cv.VideoCapture('Datasets/Game1/First Half/0/output.h264') # 30s clip / 900 frames - camera 0
 # cap = cv.VideoCapture('Datasets/Game1/First Half/0/output2.h264') # 30s clip / 900 frames - camera 0
-cap = cv.VideoCapture('Datasets/Game1/First Half/0/longerOutput.h264') # 60s clip / 1800 frames - camera 0
+# cap = cv.VideoCapture('Datasets/Game1/First Half/0/longerOutput.h264') # 60s clip / 1800 frames - camera 0
 # cap = cv.VideoCapture('Datasets/Game1/First Half/1/output.h264') # 30s clip / 900 frames - camera 1
 # cap = cv.VideoCapture('Datasets/Game1/First Half/1/output2.h264') # 30s clip / 900 frames - camera 1
-# cap = cv.VideoCapture('Datasets/Game1/First Half/1/longerOutput.h264') # 60s clip / 1800 frames - camera 1
+cap = cv.VideoCapture('Datasets/Game1/First Half/1/longerOutput.h264') # 60s clip / 1800 frames - camera 1
 
 # 300/400/500 for noise - 500 for undetected player
 # 1200/1300/1400 for noise - 1400 for undetected player
@@ -180,9 +181,9 @@ while(cap.isOpened()):
             while (len(imagePts) < 29):
                 ##### Temporary shortcut - REMOVE EVENTUALLY #####
                 # Camera 0
-                imagePts = [[819, 161, 1], [740, 172, 1], [654, 184, 1], [605, 193, 1], [528, 204, 1], [470, 216, 1], [317, 247, 1], [55, 302, 1], [701, 191, 1], [519, 226, 1], [679, 215, 1], [896, 192, 1], [480, 296, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
+                # imagePts = [[819, 161, 1], [740, 172, 1], [654, 184, 1], [605, 193, 1], [528, 204, 1], [470, 216, 1], [317, 247, 1], [55, 302, 1], [701, 191, 1], [519, 226, 1], [679, 215, 1], [896, 192, 1], [480, 296, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
                 # Camera 1
-                # imagePts = [[22, 147, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [140, 168, 1], [-1, -1], [640, 110, 1], [674, 196, 1], [872, 779, 1], [1139, 116, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [1226, 87, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
+                imagePts = [[22, 147, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [140, 168, 1], [-1, -1], [640, 110, 1], [674, 196, 1], [872, 779, 1], [1139, 116, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [1226, 87, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
                 cv.imshow('Frame', frame)
                 cv.imshow('Minimap', minimap)
                 key = cv.waitKey(1) & 0xFF
@@ -213,18 +214,18 @@ while(cap.isOpened()):
                 hPitchToMinimap, inliersPitchToMinimap = cv.findHomography(np.asarray(pitchPts), np.asarray(minimapPts))
 
                 # Pitch mask creation by iterating over each image pixel
-                mask = np.zeros(frame.shape[:2], dtype='uint8')
-                for i in range (mask.shape[0]):
-                    for j in range (mask.shape[1]):
+                pitchMask = np.zeros(frame.shape[:2], dtype='uint8')
+                for i in range (pitchMask.shape[0]):
+                    for j in range (pitchMask.shape[1]):
                         pitchPos = hImageToPitch @ np.asarray([[j],[i],[1]])
                         newX = pitchPos[0][0] / pitchPos[2][0]
                         newY = pitchPos[1][0] / pitchPos[2][0]
                         newZ = pitchPos[2][0] / pitchPos[2][0]
                         if (newX>0 and newX<pitchLength and newY>0 and newY<pitchWidth):
-                            mask[i][j] = 1
+                            pitchMask[i][j] = 1
 
         # Application of pitch mask
-        frame = cv.bitwise_and(frame, frame, mask=mask)
+        frame = cv.bitwise_and(frame, frame, mask=pitchMask)
 
         # Background subtraction on frame
         fgMask = backSub.apply(frame)
@@ -239,15 +240,26 @@ while(cap.isOpened()):
 
         # Find and draw contours on frame + finding suitable bounding boxes
         contours, hierarchy = cv.findContours(opening, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-        # cv.drawContours(frame, contours, -1, (0,255,0), 3)
+        # cv.drawContours(frame, usedContours, -1, (0,255,0), 3)
         
         boundingBoxes = []
+
+        # Might be better to use contour instead of bounding box for classification features
+        # usedContours = []
         for contour in contours:
             x,y,w,h = cv.boundingRect(contour)
             if (h > w) and (h > 10) and (w > 10):
                 boundingBoxes.append((x, y, w, h))
+                # usedContours.append(contour)
         
         boundingBoxes = mergeOverlappingBoxes(boundingBoxes)
+        
+        # players = [6,7,8,11,13]   # Comparison
+        # players = [0,2,3,5,8,10,13,14,15]  # Black/Blue team
+        players = [1,4,7,9,11,12] # White/Red team
+        # players = [6,6] # Referee
+
+        # cv.drawContours(frame, usedContours, -1, (0,255,0), 3)
 
         # Drawing bounding boxes on frame with numbering
         for i in range (len(boundingBoxes)):
@@ -262,18 +274,60 @@ while(cap.isOpened()):
         cv.rectangle(frame, (10, 2), (100,20), (255,255,255), -1)
         cv.putText(frame, str(frameNumber), (15, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (0,0,0))
 
-        frame = cv.bitwise_and(frame,frame,mask = mask)
-
         # Display the resulting frame
         cv.imshow('Frame', frame)
         cv.imshow('Minimap', minimap)
 
-        # Pause at frames
-        if (frameNumber == 40 or frameNumber == 50 or frameNumber == 60 or frameNumber == 70 or frameNumber == 80):
-            cv.waitKey(0)
+        # # Pause at frames
+        # if (frameNumber == 40 or frameNumber == 50 or frameNumber == 60 or frameNumber == 70 or frameNumber == 80):
+        #     cv.waitKey(0)
 
         # Pause at frames
         if (frameNumber == 90 or frameNumber == 270 or frameNumber == 450 or frameNumber == 720 or frameNumber == 900):
+            
+            # RGB Histograms
+            colour = ('b','g','r')
+            fig, ax = plt.subplots(len(players), 2)
+            plt.subplots_adjust(left=0.2,
+                    bottom=0.1,
+                    right=0.9,
+                    top=0.9,
+                    wspace=0.2,
+                    hspace=0.6)
+            bins = 64
+            
+            for i in range (len(players)):
+                x1 = boundingBoxes[players[i]][0]
+                y1 = boundingBoxes[players[i]][1]
+                x2 = boundingBoxes[players[i]][0] + boundingBoxes[players[i]][2]
+                y2 = boundingBoxes[players[i]][1] + boundingBoxes[players[i]][3]
+
+                croppedImage = frameCopy[y1:y2, x1:x2]
+                # cv.imshow('PlayerMask '+str(players[i]),s croppedImage)
+                
+                ax[i][0].set_title("Player "+str(players[i])+" Image RGB Histogram - 256 bin")
+                ax[i][0].set_xlabel("Bins")
+                ax[i][0].set_ylabel("# of Pixels")
+                ax[i][0].set_xlim([0,256])
+                ax[i][0].set_ylim([0,0.1])
+
+                ax[i][1].set_title("Player "+str(players[i])+" Image RGB Histogram - "+str(bins)+" bin")
+                ax[i][1].set_xlabel("Bins")
+                ax[i][1].set_ylabel("# of Pixels")
+                ax[i][1].set_xlim([0,bins-1])
+                ax[i][1].set_ylim([0,0.5])
+
+                for j,col in enumerate(colour):
+                    histr = cv.calcHist([croppedImage],[j],None,[256],[0,256])
+                    histr /= histr.sum()
+                    ax[i][0].plot(histr, color=col)
+
+                    histr2 = cv.calcHist([croppedImage],[j],None,[bins],[0,256])
+                    histr2 /= histr2.sum()
+                    ax[i][1].plot(histr2, color=col)
+            
+            plt.show()
+            
             cv.waitKey(0)
 
         # Press Q on keyboard to exit
