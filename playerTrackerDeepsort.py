@@ -1,6 +1,7 @@
 # Library imports
 import cv2 as cv
 import numpy as np
+from deep_sort_realtime.deepsort_tracker import DeepSort
 
 # Function for drawing the selected pitch points drawn on the image window
 def redrawFrame(frame, minimap, imagePts):
@@ -156,6 +157,24 @@ cap = cv.VideoCapture('Datasets/Game1/First Half/1/longerOutput.h264') # 60s cli
 minimap = cv.imread('Pitch Minimap2.jpg')
 minimap = cv.resize(minimap, None, fx=2, fy=2)
 
+object_tracker = DeepSort(max_age=10,
+                          n_init=5,
+                          nms_max_overlap=1.0,
+                          max_cosine_distance=0.3,
+                          nn_budget=None,
+                          override_track_class=None,
+                          embedder="torchreid",
+                        #   embedder="mobilenet",
+                          half=True,
+                          bgr=True,
+                          embedder_gpu=True,
+                          embedder_model_name=None,
+                          embedder_wts=None,
+                          polygon=False,
+                          today=None)
+
+# embedder="mobilenet" is default parameter - can use for faster model
+
 # Check if camera opened successfully
 if (cap.isOpened()== False):
     print("Error opening video file")
@@ -176,9 +195,9 @@ while(cap.isOpened()):
             imagePts = []
             frameCopy = frame.copy()
             minimapCopy = minimap.copy()
-            cv.namedWindow('Frame')
-            cv.setMouseCallback('Frame', clickPitchPoints)
-            frame, minimap = redrawFrame(frame, minimap, imagePts)
+            # cv.namedWindow('Frame')
+            # cv.setMouseCallback('Frame', clickPitchPoints)
+            # frame, minimap = redrawFrame(frame, minimap, imagePts)
 
             # # User selection of 29 key pitch points
             while (len(imagePts) < 29):
@@ -186,7 +205,7 @@ while(cap.isOpened()):
                 # Camera 0
                 # imagePts = [[819, 161, 1], [740, 172, 1], [654, 184, 1], [605, 193, 1], [528, 204, 1], [470, 216, 1], [317, 247, 1], [55, 302, 1], [701, 191, 1], [519, 226, 1], [679, 215, 1], [896, 192, 1], [480, 296, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
                 # Camera 1
-                # imagePts = [[22, 147, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [140, 168, 1], [-1, -1], [640, 110, 1], [674, 196, 1], [872, 779, 1], [1139, 116, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [1226, 87, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
+                imagePts = [[22, 147, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [140, 168, 1], [-1, -1], [640, 110, 1], [674, 196, 1], [872, 779, 1], [1139, 116, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [1226, 87, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
                 cv.imshow('Frame', frame)
                 cv.imshow('Minimap', minimap)
                 key = cv.waitKey(1) & 0xFF
@@ -249,19 +268,20 @@ while(cap.isOpened()):
         # cv.drawContours(frame, usedContours, -1, (0,255,0), 3)
         
         boundingBoxes = []
+        detections = []
 
         # Might be better to use contour instead of bounding box for classification features
         # usedContours = []
         for contour in contours:
             x,y,w,h = cv.boundingRect(contour)
             if (h > w) and (h > 10) and (w > 10):
-                boundingBoxes.append((x, y, w, h))
+                boundingBoxes.append([x, y, w, h])
+                detections.append(([x, y, w, h], 0.75, 'person'))
                 # usedContours.append(contour)
         
         boundingBoxes = mergeOverlappingBoxes(boundingBoxes)
 
         # cv.drawContours(frame, usedContours, -1, (0,255,0), 3)
-        # cv.drawContours(frame, usedContours, -1, (0,255,0), -1)
 
         # Drawing bounding boxes on frame with numbering
         for i in range (len(boundingBoxes)):
@@ -272,12 +292,34 @@ while(cap.isOpened()):
             cv.rectangle(frame,(boundingBoxes[i][0],boundingBoxes[i][1]),(boundingBoxes[i][0]+boundingBoxes[i][2],boundingBoxes[i][1]+boundingBoxes[i][3]),(0,0,255),1)
             cv.putText(frame, str(i), (boundingBoxes[i][0], boundingBoxes[i][1]), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (255,255,0))
 
+        startTracking = 451
+        if (frameNumber>=startTracking):
+
+            tracks = object_tracker.update_tracks(detections, frame=frameCopy)
+
+            if (frameNumber==startTracking):
+                for i in range(2):
+                    tracks = object_tracker.update_tracks(detections, frame=frameCopy)
+            
+            for track in tracks:
+                if not track.is_confirmed():
+                    continue
+                track_id = track.track_id
+                ltrb = track.to_ltrb()
+                
+                bbox = ltrb
+                
+                cv.rectangle(frameCopy,(int(bbox[0]), int(bbox[1])),(int(bbox[2]), int(bbox[3])),(0,0,255),1)
+                cv.putText(frameCopy, "ID: " + str(track_id), (int(bbox[0]), int(bbox[1] - 10)), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 1)
+            
+
         # Current frame counter
         cv.rectangle(frame, (10, 2), (100,20), (255,255,255), -1)
         cv.putText(frame, str(frameNumber), (15, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (0,0,0))
 
         # Display the resulting frame
         cv.imshow('Frame', frame)
+        cv.imshow('Tracker Frame', frameCopy)
         cv.imshow('Minimap', minimap)
 
         # # Pause at frames
@@ -285,8 +327,15 @@ while(cap.isOpened()):
         #     cv.waitKey(0)
 
         # Pause at frames
-        if (frameNumber == 90 or frameNumber == 270 or frameNumber == 450 or frameNumber == 720 or frameNumber == 900):
-            cv.waitKey(0)
+        # if (frameNumber == 90 or frameNumber == 270 or frameNumber == 450 or frameNumber == 720 or frameNumber == 900):
+            # cv.waitKey(0)
+
+        # if (frameNumber >= 450):
+        #     cv.waitKey(0)
+
+        # # Press P on keyboard to pause
+        # if cv.waitKey(31) & 0xFF == ord('p'):
+        #     cv.waitKey(0)
 
         # Press Q on keyboard to exit
         if cv.waitKey(25) & 0xFF == ord('q'):

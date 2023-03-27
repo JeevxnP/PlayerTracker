@@ -176,9 +176,9 @@ while(cap.isOpened()):
             imagePts = []
             frameCopy = frame.copy()
             minimapCopy = minimap.copy()
-            cv.namedWindow('Frame')
-            cv.setMouseCallback('Frame', clickPitchPoints)
-            frame, minimap = redrawFrame(frame, minimap, imagePts)
+            # cv.namedWindow('Frame')
+            # cv.setMouseCallback('Frame', clickPitchPoints)
+            # frame, minimap = redrawFrame(frame, minimap, imagePts)
 
             # # User selection of 29 key pitch points
             while (len(imagePts) < 29):
@@ -186,7 +186,7 @@ while(cap.isOpened()):
                 # Camera 0
                 # imagePts = [[819, 161, 1], [740, 172, 1], [654, 184, 1], [605, 193, 1], [528, 204, 1], [470, 216, 1], [317, 247, 1], [55, 302, 1], [701, 191, 1], [519, 226, 1], [679, 215, 1], [896, 192, 1], [480, 296, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
                 # Camera 1
-                # imagePts = [[22, 147, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [140, 168, 1], [-1, -1], [640, 110, 1], [674, 196, 1], [872, 779, 1], [1139, 116, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [1226, 87, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
+                imagePts = [[22, 147, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [140, 168, 1], [-1, -1], [640, 110, 1], [674, 196, 1], [872, 779, 1], [1139, 116, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [1226, 87, 1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]]
                 cv.imshow('Frame', frame)
                 cv.imshow('Minimap', minimap)
                 key = cv.waitKey(1) & 0xFF
@@ -261,7 +261,6 @@ while(cap.isOpened()):
         boundingBoxes = mergeOverlappingBoxes(boundingBoxes)
 
         # cv.drawContours(frame, usedContours, -1, (0,255,0), 3)
-        # cv.drawContours(frame, usedContours, -1, (0,255,0), -1)
 
         # Drawing bounding boxes on frame with numbering
         for i in range (len(boundingBoxes)):
@@ -271,6 +270,26 @@ while(cap.isOpened()):
             y2 = boundingBoxes[i][1] + boundingBoxes[i][3]
             cv.rectangle(frame,(boundingBoxes[i][0],boundingBoxes[i][1]),(boundingBoxes[i][0]+boundingBoxes[i][2],boundingBoxes[i][1]+boundingBoxes[i][3]),(0,0,255),1)
             cv.putText(frame, str(i), (boundingBoxes[i][0], boundingBoxes[i][1]), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (255,255,0))
+
+            if (frameNumber==90) and (i==6):
+                croppedImage = frameCopy[y1:y2, x1:x2]
+
+                # Create SIFT feature extractor
+                sift = cv.xfeatures2d.SIFT_create()
+
+                # Detect features from the image
+                keypoints, descriptors = sift.detectAndCompute(croppedImage, None)
+
+                # Draw the detected key points
+                # sift_image = cv.drawKeypoints(frame, keypoints, frame)
+
+
+        if (frameNumber>=90):
+            keypoints2, descriptors2 = sift.detectAndCompute(frame, None)
+            bf = cv.BFMatcher(cv.NORM_L2, crossCheck=True)
+            matches = bf.match(descriptors,descriptors2)
+            matchedImage = cv.drawMatches(croppedImage,keypoints,frame,keypoints2,matches,None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+            cv.imshow('Matches', matchedImage)
 
         # Current frame counter
         cv.rectangle(frame, (10, 2), (100,20), (255,255,255), -1)
@@ -286,6 +305,9 @@ while(cap.isOpened()):
 
         # Pause at frames
         if (frameNumber == 90 or frameNumber == 270 or frameNumber == 450 or frameNumber == 720 or frameNumber == 900):
+            cv.waitKey(0)
+
+        if (frameNumber>90):
             cv.waitKey(0)
 
         # Press Q on keyboard to exit

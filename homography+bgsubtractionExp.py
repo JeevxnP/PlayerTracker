@@ -49,11 +49,13 @@ pitchLength = 105
 pitchWidth = 68
 
 # Mixture of gaussians background subtractor object
-backSub = cv.createBackgroundSubtractorMOG2()
+backSub = cv.createBackgroundSubtractorMOG2(800, 12, True)
+backSub2 = cv.createBackgroundSubtractorMOG2(800, 16, True)
+# backSub3 = cv.createBackgroundSubtractorMOG2(800, 12, True)
 
 # Create a VideoCapture object and read from input file
-# cap = cv.VideoCapture('Datasets/Game1/First Half/0/output.h264') # 30s clip / 900 frames - camera 0
-cap = cv.VideoCapture('Datasets/Game1/First Half/1/output.h264') # 30s clip / 900 frames - camera 1
+cap = cv.VideoCapture('Datasets/Game1/First Half/0/output.h264') # 30s clip / 900 frames - camera 0
+# cap = cv.VideoCapture('Datasets/Game1/First Half/1/output.h264') # 30s clip / 900 frames - camera 1
 
 # Check if camera opened successfully
 if (cap.isOpened()== False):
@@ -66,10 +68,8 @@ while(cap.isOpened()):
     ret, frame = cap.read()
     if ret == True:
 
-        # Current frame counter
+        # Obtains current frame number
         frameNumber = cap.get(cv.CAP_PROP_POS_FRAMES)
-        cv.rectangle(frame, (10, 2), (100,20), (255,255,255), -1)
-        cv.putText(frame, str(frameNumber), (15, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (0,0,0))
 
         # Select pitch points on first video frame
         if (frameNumber == 1):
@@ -91,7 +91,7 @@ while(cap.isOpened()):
                 cv.setMouseCallback('Frame', lambda *args : None)
                 # cv.setMouseCallback('Frame', homography)
 
-                # Homography calculation for image to pitch
+                # Homography calculation
                 boxToSidelines = (pitchWidth-40.32)/2
                 pitchPts = [[0, 0, 1], [0, boxToSidelines, 1], [0, boxToSidelines+11, 1],
                             [0, boxToSidelines+16.5, 1], [0, boxToSidelines+23.82, 1],
@@ -136,9 +136,63 @@ while(cap.isOpened()):
 
         # Application of pitch mask
         frame = cv.bitwise_and(frame, frame, mask=mask)
+        frame2 = frame.copy()
+        # frame3 = frame.copy()
+
+        fgMask = backSub.apply(frame)
+        fgMask2 = backSub2.apply(frame2)
+        # fgMask3 = backSub3.apply(frame3)
+
+        ret, thresh = cv.threshold(fgMask,127,255,cv.THRESH_BINARY)
+        ret2, thresh2 = cv.threshold(fgMask2,127,255,cv.THRESH_BINARY)
+        # ret3, thresh3 = cv.threshold(fgMask3,127,255,cv.THRESH_BINARY)
+
+        # 3x3 opening kernal was better
+        kernel = np.ones((3,3),np.uint8)
+        opening = cv.morphologyEx(thresh, cv.MORPH_OPEN, kernel)
+        opening2 = cv.morphologyEx(thresh2, cv.MORPH_OPEN, kernel)
+        # opening3 = cv.morphologyEx(thresh3, cv.MORPH_OPEN, kernel)
+
+        contours, hierarchy = cv.findContours(opening, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        contours2, hierarchy2 = cv.findContours(opening2, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        # contours3, hierarchy3 = cv.findContours(opening3, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        
+        cv.drawContours(frame, contours, -1, (0,255,0), 3)
+        cv.drawContours(frame2, contours2, -1, (0,255,0), 3)
+        # cv.drawContours(frame3, contours3, -1, (0,255,0), 3)
+
+        for contour in contours:
+            x,y,w,h = cv.boundingRect(contour)
+            if (h > w) and (h > 10):
+                cv.rectangle(frame,(x,y),(x+w,y+h),(0,0,255),2)
+
+        for contour in contours2:
+            x,y,w,h = cv.boundingRect(contour)
+            if (h > w) and (h > 10):
+                cv.rectangle(frame2,(x,y),(x+w,y+h),(0,0,255),2)
+        
+        # for contour in contours3:
+        #     x,y,w,h = cv.boundingRect(contour)
+        #     if (h > w) and (h > 10):
+        #         cv.rectangle(frame3,(x,y),(x+w,y+h),(0,0,255),2)
+
+        # Current frame counter
+        cv.rectangle(frame, (10, 2), (100,20), (255,255,255), -1)
+        cv.putText(frame, str(frameNumber), (15, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (0,0,0))
+
+        # Current frame counter
+        cv.rectangle(frame2, (10, 2), (100,20), (255,255,255), -1)
+        cv.putText(frame2, str(frameNumber), (15, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (0,0,0))
+
+        # # Current frame counter
+        # cv.rectangle(frame3, (10, 2), (100,20), (255,255,255), -1)
+        # cv.putText(frame3, str(frameNumber), (15, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5 , (0,0,0))
+
 
         # Display the resulting frame
         cv.imshow('Frame', frame)
+        cv.imshow('Frame2', frame2)
+        # cv.imshow('Frame3', frame3)
 
         # Pause at frames
         if (frameNumber == 90 or frameNumber == 270 or frameNumber == 450 or frameNumber == 720 or frameNumber == 900):
